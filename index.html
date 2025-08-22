@@ -4,13 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crypto Alerts</title>
-    <!-- Use a simple, clean font like Inter from Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script type="module">
-        // Import the necessary Firebase and other libraries
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // Import the necessary Firebase libraries
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, getDoc } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
         // Global variables for Firebase instances
         let db, auth, userId;
@@ -36,9 +35,11 @@
         }
 
         // Event listener for the message box OK button
-        messageBoxOkBtn.addEventListener('click', () => {
-            messageBoxModal.classList.add('hidden');
-        });
+        if (messageBoxOkBtn) {
+            messageBoxOkBtn.addEventListener('click', () => {
+                messageBoxModal.classList.add('hidden');
+            });
+        }
 
         // Function to fetch and update Bitcoin price
         async function fetchCryptoPrice() {
@@ -75,7 +76,7 @@
         function renderAlerts(alerts) {
             alertsList.innerHTML = ''; // Clear existing alerts
             if (alerts.length === 0) {
-                alertsList.innerHTML = `<p class="empty-message">No alerts yet. Create one above!</p>`;
+                alertsList.innerHTML = `<p class="empty-message">No alerts yet. Create one!</p>`;
             } else {
                 alerts.forEach(alert => {
                     const li = document.createElement('li');
@@ -112,7 +113,6 @@
                 await addDoc(alertsCollection, {
                     targetPrice: targetPrice,
                     createdAt: new Date(),
-                    isTriggered: false
                 });
                 
                 // Clear the input field after successful submission
@@ -126,7 +126,7 @@
         }
 
         // Main initialization function
-        window.onload = function() {
+        async function initializeFirebase() {
             try {
                 // Use provided global variables for Firebase config
                 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -135,14 +135,12 @@
                 db = getFirestore(app);
                 auth = getAuth(app);
                 
-                // Start authentication listener
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         console.log("User signed in with UID:", user.uid);
                         userId = user.uid;
                         userIdDisplay.textContent = `Your User ID: ${userId}`;
 
-                        // Set up real-time Firestore listener for *private* alerts
                         const userAlertsQuery = query(collection(db, `/artifacts/${appId}/users/${userId}/data`));
                         onSnapshot(userAlertsQuery, (snapshot) => {
                             const userAlerts = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
@@ -164,7 +162,6 @@
                     }
                 });
 
-                // Sign in with custom token if available, otherwise anonymously
                 const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
                 if (token) {
                     signInWithCustomToken(auth, token).catch((e) => {
@@ -175,17 +172,18 @@
                     signInAnonymously(auth);
                 }
 
-                // Initial fetch and set interval for price updates
                 fetchCryptoPrice();
-                setInterval(fetchCryptoPrice, 30000); // Fetch every 30 seconds
+                setInterval(fetchCryptoPrice, 30000);
                 
-                // Add form submission listener
                 alertForm.addEventListener('submit', addAlert);
             } catch (e) {
                 console.error("Initialization failed:", e);
                 showMessageBox('Initialization Error', 'Failed to initialize the app. Check console for details.');
             }
-        };
+        }
+
+        // Wait for the window to load before initializing everything
+        window.onload = initializeFirebase;
     </script>
     <style>
         :root {
@@ -240,7 +238,7 @@
             margin-bottom: 20px;
             word-wrap: break-word;
         }
-
+        
         #currentPriceDisplay {
             font-weight: bold;
             font-size: 1.2rem;
@@ -324,7 +322,7 @@
             font-size: 0.8rem;
             color: var(--light-text-color);
         }
-
+        
         .price-value {
             font-size: 1.1rem;
             font-weight: 700;
@@ -364,6 +362,10 @@
             z-index: 9999;
         }
         
+        .modal.hidden {
+            display: none;
+        }
+        
         .modal-content {
             background-color: white;
             padding: 30px;
@@ -392,7 +394,7 @@
             border-radius: 5px;
             cursor: pointer;
         }
-
+        
         /* Dark mode compatibility */
         @media (prefers-color-scheme: dark) {
             body {
@@ -440,7 +442,7 @@
 
         <div id="userIdDisplay"></div>
         <p>Current BTC Price: <span id="currentPriceDisplay">Loading...</span></p>
-
+        
         <form id="alertForm">
             <input type="number" id="alertInput" placeholder="Enter target price..." required step="0.01">
             <button type="submit">Create Alert</button>
@@ -449,11 +451,9 @@
         <div id="messages"></div>
 
         <ul id="alertsList">
-            <!-- Alerts will be loaded here dynamically by the JavaScript -->
-        </ul>
+            </ul>
     </div>
     
-    <!-- Custom Message Box -->
     <div id="messageBoxModal" class="modal hidden">
         <div class="modal-content">
             <h3 id="messageBoxTitle"></h3>
