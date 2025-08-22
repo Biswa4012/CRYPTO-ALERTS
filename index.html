@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crypto Alerts</title>
+    <!-- Use a simple, clean font like Inter from Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script type="module">
         // Import the necessary Firebase libraries
@@ -45,14 +46,18 @@
         async function fetchCryptoPrice() {
             try {
                 const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
-                if (!response.ok) throw new Error('API request failed');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
                 const data = await response.json();
                 const price = data.bitcoin.usd;
                 currentPriceDisplay.textContent = `$${price.toLocaleString()}`;
                 checkAlerts(price);
             } catch (error) {
                 console.error("Error fetching crypto price:", error);
-                currentPriceDisplay.textContent = "Error";
+                currentPriceDisplay.textContent = "Error fetching price";
+                // Optionally show a message box for the error
+                // showMessageBox('API Error', 'Failed to fetch the current Bitcoin price. Please check your network connection.');
             }
         }
         
@@ -175,7 +180,9 @@
                 fetchCryptoPrice();
                 setInterval(fetchCryptoPrice, 30000);
                 
-                alertForm.addEventListener('submit', addAlert);
+                if (alertForm) {
+                    alertForm.addEventListener('submit', addAlert);
+                }
             } catch (e) {
                 console.error("Initialization failed:", e);
                 showMessageBox('Initialization Error', 'Failed to initialize the app. Check console for details.');
@@ -451,9 +458,11 @@
         <div id="messages"></div>
 
         <ul id="alertsList">
-            </ul>
+            <!-- Alerts will be loaded here dynamically by the JavaScript -->
+        </ul>
     </div>
     
+    <!-- Custom Message Box -->
     <div id="messageBoxModal" class="modal hidden">
         <div class="modal-content">
             <h3 id="messageBoxTitle"></h3>
