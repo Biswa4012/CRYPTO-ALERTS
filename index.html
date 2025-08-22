@@ -4,19 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crypto Alerts</title>
-    <!-- Use a simple, clean font like Inter from Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script type="module">
         // Import the necessary Firebase libraries
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // IMPORTANT: The following variables are provided by the hosting environment
-        // and are required for the app to function.
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const authToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        // Your unique Firebase configuration. This is what connects your app to your database.
+        const firebaseConfig = {
+          apiKey: "AIzaSyC26cslps68nOVtP7d9s0QStylBI1iZk48",
+          authDomain: "crypto-alerts69.firebaseapp.com",
+          projectId: "crypto-alerts69",
+          storageBucket: "crypto-alerts69.firebasestorage.app",
+          messagingSenderId: "826666413872",
+          appId: "1:826666413872:web:5691385eee56ad33af62f5",
+          measurementId: "G-8ECNGX8HB0"
+        };
+        
+        const appId = firebaseConfig.projectId;
+        const authToken = null;
 
         let db, auth, userId;
 
@@ -28,13 +35,9 @@
                 auth = getAuth(app);
                 db = getFirestore(app);
 
-                // Sign in the user. We try with the custom token first, then anonymously.
-                if (authToken) {
-                    await signInWithCustomToken(auth, authToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-
+                // Sign in the user anonymously
+                await signInAnonymously(auth);
+                
                 // Get the user ID after successful sign-in
                 userId = auth.currentUser.uid;
                 console.log("Firebase initialized. User ID:", userId);
@@ -55,7 +58,7 @@
             const alertsCollection = collection(db, `/artifacts/${appId}/public/data/alerts`);
             
             // Create a query to order alerts by creation date
-            const q = query(alertsCollection);
+            const q = query(alertsCollection, orderBy('createdAt', 'desc'));
 
             // Set up a real-time listener
             onSnapshot(q, (querySnapshot) => {
@@ -290,8 +293,7 @@
         <div id="messages"></div>
 
         <ul id="alertsList">
-            <!-- Alerts will be loaded here dynamically by the JavaScript -->
-        </ul>
+            </ul>
     </div>
 </body>
 </html>
