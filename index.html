@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Alerts</title>
+    <!-- Use a simple, clean font like Inter from Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script type="module">
+        // Import the necessary Firebase libraries
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // IMPORTANT: The following variables are provided by the hosting environment
+        // and are required for the app to function.
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const authToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let db, auth, userId;
+
+        // Initialize Firebase and authenticate the user
+        async function initializeFirebase() {
+            try {
+                // Initialize the Firebase app with the provided config
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                // Sign in the user. We try with the custom token first, then anonymously.
+                if (authToken) {
+                    await signInWithCustomToken(auth, authToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                // Get the user ID after successful sign-in
+                userId = auth.currentUser.uid;
+                console.log("Firebase initialized. User ID:", userId);
+                document.getElementById('userIdDisplay').textContent = `Your User ID: ${userId}`;
+
+                // Set up the real-time listener for alerts
+                setupRealtimeListener();
+
+            } catch (error) {
+                console.error("Error initializing Firebase:", error);
+                document.getElementById('messages').innerHTML = `<p class="error">Error connecting to the database. Please try again later.</p>`;
+            }
+        }
+
+        // Function to set up the real-time listener for Firestore alerts
+        function setupRealtimeListener() {
+            // Get a reference to the 'alerts' collection
+            const alertsCollection = collection(db, `/artifacts/${appId}/public/data/alerts`);
+            
+            // Create a query to order alerts by creation date
+            const q = query(alertsCollection);
+
+            // Set up a real-time listener
+            onSnapshot(q, (querySnapshot) => {
+                const alertsList = document.getElementById('alertsList');
+                // Clear the existing alerts to prevent duplicates
+                alertsList.innerHTML = '';
+                
+                // If there are no alerts, show a message
+                if (querySnapshot.empty) {
+                    alertsList.innerHTML = `<p class="empty-message">No alerts yet. Be the first to add one!</p>`;
+                } else {
+                    // Iterate through the documents and create list items
+                    querySnapshot.forEach((doc) => {
+                        const alertData = doc.data();
+                        const li = document.createElement('li');
+                        li.className = 'alert-item';
+                        // Display the alert content and the user ID of the person who created it
+                        li.innerHTML = `
+                            <div class="alert-text">${alertData.text}</div>
+                            <div class="alert-meta">
+                                <span class="user-id">User: ${alertData.userId.substring(0, 8)}...</span>
+                            </div>
+                        `;
+                        alertsList.appendChild(li);
+                    });
+                }
+            }, (error) => {
+                console.error("Error listening to alerts:", error);
+            });
+        }
+
+        // Function to handle the form submission and add a new alert
+        async function addAlert(e) {
+            e.preventDefault();
+            const alertInput = document.getElementById('alertInput');
+            const alertText = alertInput.value.trim();
+
+            if (alertText === "") {
+                // Show a simple message if the input is empty
+                document.getElementById('messages').innerHTML = `<p class="error">Please enter a message.</p>`;
+                setTimeout(() => { document.getElementById('messages').innerHTML = ''; }, 3000);
+                return;
+            }
+
+            try {
+                // Add a new document to the 'alerts' collection
+                await addDoc(collection(db, `/artifacts/${appId}/public/data/alerts`), {
+                    text: alertText,
+                    userId: userId, // Store the user ID with the alert
+                    createdAt: new Date()
+                });
+                
+                // Clear the input field after successful submission
+                alertInput.value = '';
+                document.getElementById('messages').innerHTML = `<p class="success">Alert added successfully!</p>`;
+                setTimeout(() => { document.getElementById('messages').innerHTML = ''; }, 3000);
+            } catch (e) {
+                console.error("Error adding document: ", e);
+                document.getElementById('messages').innerHTML = `<p class="error">Failed to add alert. Please try again.</p>`;
+            }
+        }
+
+        // Wait for the window to load before initializing everything
+        window.onload = () => {
+            initializeFirebase();
+            const form = document.getElementById('alertForm');
+            form.addEventListener('submit', addAlert);
+        };
+    </script>
+    <style>
+        :root {
+            --primary-color: #2e7d32;
+            --secondary-color: #4caf50;
+            --background-color: #f0f4f8;
+            --card-background: #ffffff;
+            --text-color: #333333;
+            --light-text-color: #777777;
+            --border-color: #e0e0e0;
+            --success-color: #43a047;
+            --error-color: #d32f2f;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background-color: var(--card-background);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            text-align: center;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            font-size: 2.2rem;
+            margin-bottom: 10px;
+        }
+
+        p.subtitle {
+            font-size: 1rem;
+            color: var(--light-text-color);
+            margin-bottom: 25px;
+        }
+
+        #userIdDisplay {
+            font-size: 0.9rem;
+            color: var(--light-text-color);
+            margin-bottom: 20px;
+            word-wrap: break-word;
+        }
+
+        form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        input[type="text"] {
+            flex-grow: 1;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        button {
+            padding: 12px 20px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+
+        button:hover {
+            background-color: var(--secondary-color);
+            transform: translateY(-2px);
+        }
+
+        #messages {
+            height: 20px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+
+        .success {
+            color: var(--success-color);
+        }
+
+        .error {
+            color: var(--error-color);
+        }
+
+        #alertsList {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .alert-item {
+            background-color: var(--background-color);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            text-align: left;
+            border: 1px solid var(--border-color);
+        }
+
+        .alert-text {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+            word-wrap: break-word;
+        }
+
+        .alert-meta {
+            font-size: 0.8rem;
+            color: var(--light-text-color);
+        }
+
+        .empty-message {
+            color: var(--light-text-color);
+            font-style: italic;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 500px) {
+            .container {
+                padding: 20px;
+            }
+            form {
+                flex-direction: column;
+            }
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Public Crypto Alerts</h1>
+        <p class="subtitle">Enter a message below to share it with everyone using this app!</p>
+
+        <div id="userIdDisplay"></div>
+        
+        <form id="alertForm">
+            <input type="text" id="alertInput" placeholder="Enter your alert message here..." required>
+            <button type="submit">Send</button>
+        </form>
+
+        <div id="messages"></div>
+
+        <ul id="alertsList">
+            <!-- Alerts will be loaded here dynamically by the JavaScript -->
+        </ul>
+    </div>
+</body>
+</html>
